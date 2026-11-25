@@ -86,6 +86,8 @@ it infers an IDE from project files, then falls back to `default_product` (defau
 Override the selection with `jb open . --product rustrover` or specify an app
 with `--app /Applications/RustRover.app`. When the selected IDE has an app bundle,
 macOS sends the project to the running instance or launches the app as needed.
+If macOS rejects the request, `jb` falls back to the available launcher.
+For non-UTF-8 paths, `jb` uses an available launcher to preserve the original bytes.
 Without an app bundle, `jb` looks for a launcher in `JB_BINARIES` or, if unset,
 in `PATH`, then falls back to the macOS default handler. Use `--bin /path/to/launcher`
 to run a specific launcher directly.
