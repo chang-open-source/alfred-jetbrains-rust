@@ -83,7 +83,9 @@
 
 使用 `jb open . --product rustrover` 指定产品，也可通过
 `--app /Applications/RustRover.app` 指定应用。找到 IDE 应用包时，macOS 会将项目
-交给正在运行的实例，或在需要时启动应用。没有应用包时，`jb` 会从 `JB_BINARIES`
+交给正在运行的实例，或在需要时启动应用。如果 macOS 拒绝请求，`jb` 会尝试使用
+可用的启动器。对于非 UTF-8 路径，`jb` 会使用可用的启动器保留原始字节。
+没有应用包时，`jb` 会从 `JB_BINARIES`
 查找启动器，未设置时则查找 `PATH`，最后使用 macOS 默认处理方式打开路径。
 使用 `--bin /path/to/launcher` 可直接运行指定的启动器。
 

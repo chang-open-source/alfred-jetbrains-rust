@@ -33,26 +33,38 @@ pub fn open(config: &Config, options: OpenOptions) -> Result<()> {
         options.bin,
     )?;
 
-    let mut command = project_command(&path, &target);
+    let (mut command, fallback) = project_command(&path, &target);
+    if let Some(bin) = fallback {
+        // `open` returns after handing the request to Launch Services.
+        if command.status().is_ok_and(|status| status.success()) {
+            return Ok(());
+        }
+        command = Command::new(bin);
+        command.arg(&path);
+    }
     command
         .spawn()
         .with_context(|| format!("run {command:?}"))?;
     Ok(())
 }
 
-fn project_command(path: &Path, target: &Target) -> Command {
-    let mut command = match (&target.app, &target.bin) {
-        (Some(app), _) => {
+fn project_command<'a>(path: &Path, target: &'a Target) -> (Command, Option<&'a Path>) {
+    let (mut command, fallback) = match (target.app.as_deref(), target.bin.as_deref()) {
+        // The macOS opener can replace invalid UTF-8 bytes before resolving paths.
+        (Some(app), Some(bin)) if path.to_str().is_none() || app.to_str().is_none() => {
+            (Command::new(bin), None)
+        }
+        (Some(app), bin) => {
             // Launch Services can deliver the project to an already running IDE.
             let mut command = Command::new("/usr/bin/open");
             command.arg("-a").arg(app);
-            command
+            (command, bin)
         }
-        (None, Some(bin)) => Command::new(bin),
-        (None, None) => Command::new("/usr/bin/open"),
+        (None, Some(bin)) => (Command::new(bin), None),
+        (None, None) => (Command::new("/usr/bin/open"), None),
     };
     command.arg(path);
-    command
+    (command, fallback)
 }
 
 pub fn open_terminal(config: &Config, path: &Path) -> Result<()> {
@@ -225,18 +237,20 @@ mod tests {
 
     #[test]
     fn discovered_app_receives_the_project_through_macos_open() {
-        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+        use std::ffi::OsStr;
 
         let app = Path::new("/Applications/IntelliJ IDEA.app");
-        let path = Path::new(OsStr::from_bytes(b"/Projects/with space-\xff"));
+        let path = Path::new("/Projects/with space");
+        let bin = app.join("Contents/MacOS/idea");
         let target = Target {
             app: Some(app.to_path_buf()),
-            bin: Some(app.join("Contents/MacOS/idea")),
+            bin: Some(bin.clone()),
         };
 
-        let command = project_command(path, &target);
+        let (command, fallback) = project_command(path, &target);
 
         assert_eq!(command.get_program(), "/usr/bin/open");
+        assert_eq!(fallback, Some(bin.as_path()));
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
             [OsStr::new("-a"), app.as_os_str(), path.as_os_str()]

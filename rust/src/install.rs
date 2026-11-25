@@ -69,10 +69,15 @@ case "$action" in
   reveal) /usr/bin/open -R "$project" ;;
   copy) printf '%s' "$project" | /usr/bin/pbcopy ;;
   *)
+    open_status=0
     if [ -n "${jb_app:-}" ] && [ -d "$jb_app" ]; then
-      /usr/bin/open -a "$jb_app" "$project"
-    elif [ -n "${jb_bin:-}" ] && [ -x "$jb_bin" ]; then
+      /usr/bin/open -a "$jb_app" "$project" && exit 0
+      open_status=$?
+    fi
+    if [ -n "${jb_bin:-}" ] && [ -x "$jb_bin" ]; then
       "$jb_bin" "$project"
+    elif [ "$open_status" -ne 0 ]; then
+      exit "$open_status"
     else
       ./bin/jb open "$project"
     fi
@@ -665,36 +670,43 @@ mod tests {
     }
 
     #[test]
-    fn workflow_routes_open_through_the_app_when_a_launcher_also_exists() {
+    fn workflow_prefers_the_app_and_falls_back_when_open_fails() {
         let temp = tempfile::tempdir().unwrap();
         let app = temp.path().join("IntelliJ IDEA.app");
         let bin = app.join("Contents/MacOS/idea");
         fs::create_dir_all(bin.parent().unwrap()).unwrap();
-        fs::write(&bin, "#!/bin/sh\nprintf 'binary was invoked'\n").unwrap();
+        fs::write(&bin, "#!/bin/sh\nprintf '%s\\0' launcher \"$@\"\n").unwrap();
         fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
         let project = temp.path().join("project with spaces");
         let script = format!(
-            "mock_open() {{ printf '%s\\0' \"$@\"; }}\n{}",
+            "mock_open() {{ printf '%s\\0' \"$@\"; return \"$MOCK_OPEN_EXIT\"; }}\n{}",
             ACTION_SCRIPT.replace("/usr/bin/open", "mock_open")
         );
 
-        let output = std::process::Command::new("/bin/bash")
-            .env_remove("jb_action")
-            .env("jb_app", &app)
-            .env("jb_bin", &bin)
-            .args(["-c", &script, "action"])
-            .arg(&project)
-            .output()
-            .unwrap();
+        let project = project.to_str().unwrap();
+        let app_path = app.to_str().unwrap();
+        for (status, expected) in [
+            ("0", vec!["-a", app_path, project]),
+            ("1", vec!["-a", app_path, project, "launcher", project]),
+        ] {
+            let output = std::process::Command::new("/bin/bash")
+                .env_remove("jb_action")
+                .env("jb_app", &app)
+                .env("jb_bin", &bin)
+                .env("MOCK_OPEN_EXIT", status)
+                .args(["-c", &script, "action", project])
+                .output()
+                .unwrap();
 
-        assert!(output.status.success());
-        assert_eq!(
-            std::str::from_utf8(&output.stdout)
-                .unwrap()
-                .split_terminator('\0')
-                .collect::<Vec<_>>(),
-            ["-a", app.to_str().unwrap(), project.to_str().unwrap()]
-        );
+            assert!(output.status.success());
+            assert_eq!(
+                std::str::from_utf8(&output.stdout)
+                    .unwrap()
+                    .split_terminator('\0')
+                    .collect::<Vec<_>>(),
+                expected
+            );
+        }
     }
 
     #[test]

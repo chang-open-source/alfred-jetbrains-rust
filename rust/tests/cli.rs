@@ -1188,14 +1188,13 @@ fn non_utf8_path_does_not_panic() {
     let home = temp.path();
     write_fixture(home);
     let config = home.join("config.toml");
-    fs::write(&config, "app_roots = []\n").unwrap();
+    fs::write(&config, "app_roots = [\"~/Applications\"]\n").unwrap();
     let mut name = b"bad-".to_vec();
     name.push(0xff);
     let project = home.join("projects").join(OsString::from_vec(name));
 
     let marker = home.join("opened.txt");
-    let idea = home.join("empty-bin/idea");
-    fs::create_dir(idea.parent().unwrap()).unwrap();
+    let idea = home.join("Applications/IntelliJ IDEA.app/Contents/MacOS/idea");
     fs::write(
         &idea,
         format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", marker.display()),
@@ -1231,6 +1230,33 @@ fn non_utf8_path_does_not_panic() {
         project.as_os_str().as_bytes(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn open_uses_the_launcher_when_macos_cannot_open_the_app() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().unwrap();
+    let home = temp.path();
+    let app = home.join("Applications/IntelliJ IDEA.app/Contents/MacOS");
+    fs::create_dir_all(&app).unwrap();
+    let launcher = app.join("idea");
+    fs::write(&launcher, "#!/bin/sh\nprintf '%s' \"$1\"\n").unwrap();
+    fs::set_permissions(&launcher, fs::Permissions::from_mode(0o755)).unwrap();
+    let config = home.join("config.toml");
+    fs::write(&config, "app_roots = [\"~/Applications\"]\n").unwrap();
+    let project = home.join("project with spaces");
+    fs::create_dir(&project).unwrap();
+
+    let output = run(home, &config, &["open", project.to_str().unwrap()]);
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        fs::canonicalize(project)
+            .unwrap()
+            .as_os_str()
+            .as_encoded_bytes()
     );
 }
 
