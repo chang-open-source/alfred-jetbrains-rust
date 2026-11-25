@@ -51,6 +51,8 @@ Release downloads are verified against SHA256SUMS before installation.
 
 In Alfred, type `jb demo` to search projects, `idea demo` to search IntelliJ IDEA
 projects, or `jb~` to list Git worktrees. Press Return to open a result.
+Alfred and the CLI use macOS to open projects in the selected IDE, reusing its
+running instance when an app bundle is available.
 
 Search text may start with `-`. Worktrees and branch names are also detected when
 your project is a subdirectory of a Git repository.
