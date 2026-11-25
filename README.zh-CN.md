@@ -49,6 +49,7 @@ jb update v0.2.0    # 安装指定版本
 
 在 Alfred 中输入 `jb demo` 搜索项目，`idea demo` 仅搜索 IntelliJ IDEA 项目，
 `jb~` 列出 Git 工作树。选中结果后按回车打开。
+找到 IDE 应用包时，Alfred 和终端命令通过 macOS 打开项目，并复用正在运行的 IDE 实例。
 
 搜索文本支持以 `-` 开头。项目位于 Git 仓库子目录时，也能识别工作树和分支名称。
 

@@ -65,8 +65,8 @@
 
 ## 打开项目与选择 IDE
 
-在终端执行 `jb .` 或 `jb open /path/to/project`。最近打开记录中的 IDE 启动器
-可用时，优先复用该关联；新项目则根据项目文件推断 IDE，再回退到
+在终端执行 `jb .` 或 `jb open /path/to/project`。最近打开记录中的 IDE 应用包或
+启动器可用时，优先复用该关联。新项目则根据项目文件推断 IDE，再回退到
 `default_product`（默认 `idea`）。
 
 | 项目文件 | 推断 IDE |
@@ -82,9 +82,10 @@
 | `*.sln`、`*.csproj` | Rider |
 
 使用 `jb open . --product rustrover` 指定产品，也可通过
-`--app /Applications/RustRover.app` 或 `--bin /path/to/launcher` 指定启动器。
-优先使用应用包中的启动器；设置 `JB_BINARIES` 后，会用其中的目录替代 `PATH`
-查找命令行启动器。没有找到启动器时，使用 macOS 默认处理方式打开路径。
+`--app /Applications/RustRover.app` 指定应用。找到 IDE 应用包时，macOS 会将项目
+交给正在运行的实例，或在需要时启动应用。没有应用包时，`jb` 会从 `JB_BINARIES`
+查找启动器，未设置时则查找 `PATH`，最后使用 macOS 默认处理方式打开路径。
+使用 `--bin /path/to/launcher` 可直接运行指定的启动器。
 
 Alfred 的 **Open in JetBrains** 文件操作对选中的文件夹使用相同规则，
 刚克隆、尚无最近打开记录的项目也可以使用。

@@ -69,10 +69,10 @@ case "$action" in
   reveal) /usr/bin/open -R "$project" ;;
   copy) printf '%s' "$project" | /usr/bin/pbcopy ;;
   *)
-    if [ -n "${jb_bin:-}" ] && [ -x "$jb_bin" ]; then
-      "$jb_bin" "$project"
-    elif [ -n "${jb_app:-}" ] && [ -d "$jb_app" ]; then
+    if [ -n "${jb_app:-}" ] && [ -d "$jb_app" ]; then
       /usr/bin/open -a "$jb_app" "$project"
+    elif [ -n "${jb_bin:-}" ] && [ -x "$jb_bin" ]; then
+      "$jb_bin" "$project"
     else
       ./bin/jb open "$project"
     fi
@@ -662,6 +662,39 @@ mod tests {
 
     fn default_products() -> Vec<ProductConfig> {
         crate::config::default_products()
+    }
+
+    #[test]
+    fn workflow_routes_open_through_the_app_when_a_launcher_also_exists() {
+        let temp = tempfile::tempdir().unwrap();
+        let app = temp.path().join("IntelliJ IDEA.app");
+        let bin = app.join("Contents/MacOS/idea");
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, "#!/bin/sh\nprintf 'binary was invoked'\n").unwrap();
+        fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+        let project = temp.path().join("project with spaces");
+        let script = format!(
+            "mock_open() {{ printf '%s\\0' \"$@\"; }}\n{}",
+            ACTION_SCRIPT.replace("/usr/bin/open", "mock_open")
+        );
+
+        let output = std::process::Command::new("/bin/bash")
+            .env_remove("jb_action")
+            .env("jb_app", &app)
+            .env("jb_bin", &bin)
+            .args(["-c", &script, "action"])
+            .arg(&project)
+            .output()
+            .unwrap();
+
+        assert!(output.status.success());
+        assert_eq!(
+            std::str::from_utf8(&output.stdout)
+                .unwrap()
+                .split_terminator('\0')
+                .collect::<Vec<_>>(),
+            ["-a", app.to_str().unwrap(), project.to_str().unwrap()]
+        );
     }
 
     #[test]

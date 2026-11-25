@@ -68,8 +68,8 @@ to GoLand. Additional configured aliases work as query prefixes and with `--prod
 ## Open projects and choose an IDE
 
 In a terminal, run `jb .` or `jb open /path/to/project`. The CLI reuses a recent
-IDE association when its launcher is available. For new projects, it infers an IDE
-from project files, then falls back to `default_product` (default `idea`).
+IDE association when its app bundle or launcher is available. For new projects,
+it infers an IDE from project files, then falls back to `default_product` (default `idea`).
 
 | Project marker | Inferred IDE |
 | --- | --- |
@@ -83,11 +83,12 @@ from project files, then falls back to `default_product` (default `idea`).
 | `CMakeLists.txt` | CLion |
 | `*.sln`, `*.csproj` | Rider |
 
-Override the selection with `jb open . --product rustrover`, or specify a launcher
-with `--app /Applications/RustRover.app` or `--bin /path/to/launcher`.
-The app bundle's launcher is preferred; `JB_BINARIES` supplies alternative launcher
-directories instead of `PATH`. If no launcher is found, macOS opens the path using
-its default handler.
+Override the selection with `jb open . --product rustrover` or specify an app
+with `--app /Applications/RustRover.app`. When the selected IDE has an app bundle,
+macOS sends the project to the running instance or launches the app as needed.
+Without an app bundle, `jb` looks for a launcher in `JB_BINARIES` or, if unset,
+in `PATH`, then falls back to the macOS default handler. Use `--bin /path/to/launcher`
+to run a specific launcher directly.
 
 Alfred's **Open in JetBrains** file action applies the same selection to a chosen
 folder, including a fresh clone that has no recent-project record.

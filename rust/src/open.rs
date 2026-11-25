@@ -33,28 +33,26 @@ pub fn open(config: &Config, options: OpenOptions) -> Result<()> {
         options.bin,
     )?;
 
-    if let Some(bin) = target.bin {
-        Command::new(&bin)
-            .arg(&path)
-            .spawn()
-            .with_context(|| format!("run {}", bin.display()))?;
-        return Ok(());
-    }
-    if let Some(app) = target.app {
-        Command::new("/usr/bin/open")
-            .arg("-a")
-            .arg(&app)
-            .arg(&path)
-            .spawn()
-            .with_context(|| format!("open with {}", app.display()))?;
-        return Ok(());
-    }
-
-    Command::new("/usr/bin/open")
-        .arg(&path)
+    let mut command = project_command(&path, &target);
+    command
         .spawn()
-        .with_context(|| format!("open {}", path.display()))?;
+        .with_context(|| format!("run {command:?}"))?;
     Ok(())
+}
+
+fn project_command(path: &Path, target: &Target) -> Command {
+    let mut command = match (&target.app, &target.bin) {
+        (Some(app), _) => {
+            // Launch Services can deliver the project to an already running IDE.
+            let mut command = Command::new("/usr/bin/open");
+            command.arg("-a").arg(app);
+            command
+        }
+        (None, Some(bin)) => Command::new(bin),
+        (None, None) => Command::new("/usr/bin/open"),
+    };
+    command.arg(path);
+    command
 }
 
 pub fn open_terminal(config: &Config, path: &Path) -> Result<()> {
@@ -75,8 +73,11 @@ pub fn resolve_target(
     app: Option<PathBuf>,
     bin: Option<PathBuf>,
 ) -> Result<Target> {
-    if app.is_some() || bin.is_some() {
-        return Ok(Target { app, bin });
+    if bin.is_some() {
+        return Ok(Target { app: None, bin });
+    }
+    if app.is_some() {
+        return Ok(Target { app, bin: None });
     }
 
     let explicit_product = product
@@ -221,6 +222,26 @@ mod tests {
 
     use super::*;
     use crate::config::{Config, default_products};
+
+    #[test]
+    fn discovered_app_receives_the_project_through_macos_open() {
+        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+        let app = Path::new("/Applications/IntelliJ IDEA.app");
+        let path = Path::new(OsStr::from_bytes(b"/Projects/with space-\xff"));
+        let target = Target {
+            app: Some(app.to_path_buf()),
+            bin: Some(app.join("Contents/MacOS/idea")),
+        };
+
+        let command = project_command(path, &target);
+
+        assert_eq!(command.get_program(), "/usr/bin/open");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            [OsStr::new("-a"), app.as_os_str(), path.as_os_str()]
+        );
+    }
 
     fn write_recent(dir: &Path, project: &Path) {
         let options = dir.join("options");

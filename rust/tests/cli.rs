@@ -1064,6 +1064,10 @@ fn open_spawns_the_configured_binary() {
         &[
             "open",
             project.to_str().unwrap(),
+            "--app",
+            home.join("Applications/IntelliJ IDEA.app")
+                .to_str()
+                .unwrap(),
             "--bin",
             fake.to_str().unwrap(),
         ],
@@ -1092,12 +1096,14 @@ fn shorthand_opens_current_directory_with_inference() {
     let home = temp.path();
     write_fixture(home);
     let config = home.join("config.toml");
+    fs::write(&config, "app_roots = []\n").unwrap();
     let project = home.join("fresh-clone");
     fs::create_dir_all(&project).unwrap();
     fs::write(project.join("pom.xml"), "").unwrap();
 
     let marker = home.join("opened.txt");
-    let idea = home.join("Applications/IntelliJ IDEA.app/Contents/MacOS/idea");
+    let idea = home.join("empty-bin/idea");
+    fs::create_dir(idea.parent().unwrap()).unwrap();
     fs::write(
         &idea,
         format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", marker.display()),
@@ -1133,12 +1139,14 @@ fn global_flag_before_path_shorthand() {
     let home = temp.path();
     write_fixture(home);
     let config = home.join("config.toml");
+    fs::write(&config, "app_roots = []\n").unwrap();
     let project = home.join("fresh-clone");
     fs::create_dir_all(&project).unwrap();
     fs::write(project.join("pom.xml"), "").unwrap();
 
     let marker = home.join("opened.txt");
-    let idea = home.join("Applications/IntelliJ IDEA.app/Contents/MacOS/idea");
+    let idea = home.join("empty-bin/idea");
+    fs::create_dir(idea.parent().unwrap()).unwrap();
     fs::write(
         &idea,
         format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", marker.display()),
@@ -1180,12 +1188,14 @@ fn non_utf8_path_does_not_panic() {
     let home = temp.path();
     write_fixture(home);
     let config = home.join("config.toml");
+    fs::write(&config, "app_roots = []\n").unwrap();
     let mut name = b"bad-".to_vec();
     name.push(0xff);
     let project = home.join("projects").join(OsString::from_vec(name));
 
     let marker = home.join("opened.txt");
-    let idea = home.join("Applications/IntelliJ IDEA.app/Contents/MacOS/idea");
+    let idea = home.join("empty-bin/idea");
+    fs::create_dir(idea.parent().unwrap()).unwrap();
     fs::write(
         &idea,
         format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", marker.display()),
